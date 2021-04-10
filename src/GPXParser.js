@@ -230,12 +230,12 @@ gpxParser.prototype.queryDirectSelector = function(parent, needle) {
  * 
  * @return {DistanceObject} An object with total distance and Cumulative distances
  */
-gpxParser.prototype.calculDistance = function(points) {
+gpxParser.prototype.getDistance = function(points) {
     let distance = {};
     let totalDistance = 0;
     let cumulDistance = [];
     for (var i = 0; i < points.length - 1; i++) {
-        totalDistance += this.calcDistanceBetween(points[i],points[i+1]);
+        totalDistance += this.getDistanceBetween(points[i],points[i+1]);
         cumulDistance[i] = totalDistance;
     }
     cumulDistance[points.length - 1] = totalDistance;
@@ -247,29 +247,42 @@ gpxParser.prototype.calculDistance = function(points) {
 };
 
 /**
- * Calcul Distance between two points with lat and lon
- * 
+ * Source: https://stackoverflow.com/questions/10053358/measuring-the-distance-between-two-coordinates-in-php
+ * Calculates the great-circle distance between two points, with the Vincenty formula.
  * @param  {} wpt1 - A geographic point with lat and lon properties
  * @param  {} wpt2 - A geographic point with lat and lon properties
- * 
- * @returns {float} The distance between the two points
+ * @param float earthRadius Mean earth radius in [m]
+ * @return float Distance between points in [m] (same as earthRadius)
  */
-gpxParser.prototype.calcDistanceBetween = function (wpt1, wpt2) {
-    let latlng1 = {};
-    latlng1.lat = wpt1.lat;
-    latlng1.lon = wpt1.lon;
-    let latlng2 = {};
-    latlng2.lat = wpt2.lat;
-    latlng2.lon = wpt2.lon;
-    var rad = Math.PI / 180,
-		    lat1 = latlng1.lat * rad,
-		    lat2 = latlng2.lat * rad,
-		    sinDLat = Math.sin((latlng2.lat - latlng1.lat) * rad / 2),
-		    sinDLon = Math.sin((latlng2.lon - latlng1.lon) * rad / 2),
-		    a = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon,
-		    c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-	return 6371000 * c;
+gpxParser.prototype.getDistanceBetween = function (wpt1, wpt2) {
+	** convert degrees to radians
+	var d2r = Math.PI / 180,
+    	latFrom = wpt1.lat * d2r,
+	lonFrom = wpt1.lon * d2r,
+    	latTo = wpt2.lat * d2r,
+    	lonTo = wpt2.lon * d2r,
+	lonDelta = lonTo - lonFrom;
+	var a = Math.pow(Math.cos(latTo) * Math.sin(lonDelta), 2) +
+    		Math.pow(Math.cos(latFrom) * Math.sin(latTo) - Math.sin(latFrom) * Math.cos(latTo) * Math.cos(lonDelta), 2);
+  	var b = Math.sin(latFrom) * Math.sin(latTo) + Math.cos(latFrom) * Math.cos(latTo) * Math.cos(lonDelta);
+	var angle = Math.atan2(Math.sqrt(a), b);
+	var earthRadius=this.getEarthRadiusAtLatitude((wpt1.lat+wpt2.lat)/2);
+  	return angle * earthRadius;
 };
+
+/**
+* Source:https://rechneronline.de/earth-radius/
+* Calculates the earth radius in meters based on the latitude (in degrees)
+* @param float latitude - The latitude
+* @return float earth radius in meters
+*/
+gpxParser.prototype.getEarthRadiusAtLatitude(latitude){
+	var x=latitude*Math.PI/180,
+		r1=6378137,
+		r2=6356752.3
+	;
+	return Math.sqrt((Math.pow(r1*r1*Math.cos(x),2)+Math.pow(r2*r2*Math.sin(x),2)) / (Math.pow(r1*Math.cos(x),2)+Math.pow(r2*Math.sin(x),2)));
+}
 
 /**
  * Generate Elevation Object from an array of points
